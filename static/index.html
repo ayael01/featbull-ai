@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Requirement Clustering</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: #333; }
+        .button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+        .results { margin-top: 20px; }
+        .group { margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .slider { width: 300px; }
+        .group-title { font-weight: bold; font-size: 18px; margin-bottom: 5px; color: #555; }
+    </style>
+</head>
+<body>
+
+    <h1>Customer Requirement Clustering</h1>
+    
+    <label for="threshold">Distance Threshold: <span id="thresholdValue">0.7</span></label>
+    <input type="range" id="threshold" name="threshold" min="0.1" max="2.0" step="0.1" value="0.7" class="slider"
+           oninput="updateThresholdValue(this.value)">
+
+    <button class="button" onclick="fetchClusters()">Get Clusters</button>
+
+    <div class="results" id="results"></div>
+
+    <script>
+        function updateThresholdValue(value) {
+            document.getElementById("thresholdValue").textContent = value;
+        }
+
+        async function fetchClusters() {
+            const resultsDiv = document.getElementById("results");
+            const distanceThreshold = document.getElementById("threshold").value;
+            resultsDiv.innerHTML = "Loading clusters...";
+
+            try {
+                const response = await fetch(`http://127.0.0.1:8100/cluster-requirements?distance_threshold=${distanceThreshold}`);
+                if (!response.ok) throw new Error("Network response was not ok");
+
+                const groups = await response.json();
+                resultsDiv.innerHTML = ""; // Clear loading message
+
+                for (const [group, groupData] of Object.entries(groups)) {
+                    const groupDiv = document.createElement("div");
+                    groupDiv.classList.add("group");
+                    groupDiv.innerHTML = `
+                        <div class="group-title">${groupData.title}</div>
+                        <ul>${groupData.requirements.map(req => `<li>${req}</li>`).join("")}</ul>
+                    `;
+                    resultsDiv.appendChild(groupDiv);
+                }
+
+            } catch (error) {
+                resultsDiv.innerHTML = "Error fetching clusters: " + error;
+            }
+        }
+    </script>
+
+</body>
+</html>
