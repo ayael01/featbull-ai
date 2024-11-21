@@ -53,3 +53,4 @@ watchfiles==0.24.0
 websockets==14.0
 yarl==1.17.0
 sqlalchemy
+psycopg2
