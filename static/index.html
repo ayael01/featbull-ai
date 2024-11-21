@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Feature Requests Viewer</title>
     <style>
+        /* Your existing CSS styles */
         body {
             font-family: Arial, sans-serif;
             background-color: #f8f9fa;
@@ -13,7 +14,10 @@
         h1 {
             color: #343a40;
         }
-        #fetch-calls-button {
+        .button-group {
+            margin-bottom: 20px;
+        }
+        .main-button {
             padding: 10px 20px;
             font-size: 16px;
             background-color: #053956;
@@ -21,62 +25,36 @@
             color: #fff;
             cursor: pointer;
             border-radius: 5px;
+            margin-right: 10px;
             transition: background-color 0.3s;
         }
-        #fetch-calls-button:hover {
-            background-color: #053956;
+        .main-button:hover {
+            background-color: #02263c;
         }
-        #fetch-calls-button.loading {
+        .main-button.loading {
             background-color: #6c757d;
             cursor: not-allowed;
         }
         #calls-container {
             margin-top: 20px;
         }
-        .call {
+        .transcription {
             background-color: #fff;
             margin: 15px 0;
             padding: 15px;
             border-radius: 5px;
             border: 1px solid #ced4da;
         }
-        .call-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .call-title {
-            font-size: 18px;
-            font-weight: bold;
-            margin: 0;
-            color: #495057;
-        }
-        .show-feature-button {
-            padding: 8px 12px;
-            font-size: 14px;
-            background-color: #053956;
-            border: none;
-            color: #fff;
-            cursor: pointer;
-            border-radius: 5px;
-            transition: background-color 0.3s;
-        }
-        .show-feature-button:hover {
-            background-color: #053956;
-        }
-        .show-feature-button.loading {
-            background-color: #6c757d;
-            cursor: not-allowed;
-        }
-        .transcription {
-            margin-top: 15px;
-            padding-left: 20px;
-        }
         .title {
             font-size: 16px;
             font-weight: bold;
-            margin-top: 10px;
+            margin: 10px 0;
             color: #17a2b8;
+            cursor: pointer;
+        }
+        .feature-requests {
+            margin-left: 20px;
+            display: none;
         }
         .requirement {
             margin-left: 15px;
@@ -86,39 +64,66 @@
         .requirement p {
             margin: 5px 0;
         }
+        .title:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
 
     <h1>Feature Requests Viewer</h1>
-    <button id="fetch-calls-button">Fetch Calls</button>
+
+    <div class="button-group">
+        <button id="get-calls-button" class="main-button">Get Calls</button>
+        <button id="get-processed-calls-button" class="main-button">Get Processed Calls</button>
+    </div>
 
     <div id="calls-container"></div>
 
     <script>
-        // Fetch the list of calls when the button is clicked
-        document.getElementById('fetch-calls-button').addEventListener('click', fetchCalls);
+        // Event listeners for the main buttons
+        document.getElementById('get-calls-button').addEventListener('click', () => fetchCalls(false));
+        document.getElementById('get-processed-calls-button').addEventListener('click', () => fetchCalls(true));
 
-        async function fetchCalls() {
-            const fetchButton = document.getElementById('fetch-calls-button');
-            fetchButton.disabled = true;
-            fetchButton.textContent = 'Loading...';
-            fetchButton.classList.add('loading');
+        async function fetchCalls(processed) {
+            const getCallsButton = document.getElementById('get-calls-button');
+            const getProcessedCallsButton = document.getElementById('get-processed-calls-button');
+
+            // Disable buttons and show loading state
+            getCallsButton.disabled = true;
+            getProcessedCallsButton.disabled = true;
+            if (processed) {
+                getProcessedCallsButton.textContent = 'Loading...';
+                getProcessedCallsButton.classList.add('loading');
+            } else {
+                getCallsButton.textContent = 'Loading...';
+                getCallsButton.classList.add('loading');
+            }
 
             try {
-                const response = await fetch('/calls');
+                const endpoint = processed ? '/calls/processed' : '/calls';
+                const response = await fetch(endpoint);
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
                 }
-                const calls = await response.json();
-                displayCalls(calls);
+                const data = await response.json();
+
+                if (processed) {
+                    displayProcessedTranscription(data);
+                } else {
+                    displayCalls(data);
+                }
             } catch (error) {
                 console.error('Error fetching calls:', error);
                 alert('Failed to fetch calls. Please try again later.');
             } finally {
-                fetchButton.disabled = false;
-                fetchButton.textContent = 'Fetch Calls';
-                fetchButton.classList.remove('loading');
+                // Re-enable buttons and reset text
+                getCallsButton.disabled = false;
+                getProcessedCallsButton.disabled = false;
+                getCallsButton.textContent = 'Get Calls';
+                getProcessedCallsButton.textContent = 'Get Processed Calls';
+                getCallsButton.classList.remove('loading');
+                getProcessedCallsButton.classList.remove('loading');
             }
         }
 
@@ -142,12 +147,18 @@
 
                 const callTitle = document.createElement('h2');
                 callTitle.className = 'call-title';
-                callTitle.textContent = `Call ID: ${call.id}`;
+
+                // Display customer_name and title
+                const customerName = call.customer_name || 'Unknown Customer';
+                const callTitleText = call.title || 'No Title';
+
+                callTitle.textContent = `${customerName} - ${callTitleText}`;
 
                 const featureButton = document.createElement('button');
                 featureButton.className = 'show-feature-button';
-                featureButton.textContent = 'Show Feature Content';
-                featureButton.addEventListener('click', () => toggleTranscription(call.id, callDiv, featureButton));
+
+                featureButton.textContent = 'Process Call';
+                featureButton.addEventListener('click', () => processCall(call.id, callDiv, featureButton));
 
                 callHeader.appendChild(callTitle);
                 callHeader.appendChild(featureButton);
@@ -158,15 +169,15 @@
             });
         }
 
-        async function toggleTranscription(callId, callDiv, featureButton) {
+        async function processCall(callId, callDiv, featureButton) {
             const existingTranscription = callDiv.querySelector('.transcription');
             if (existingTranscription) {
                 // If transcription is already displayed, remove it
                 existingTranscription.remove();
-                featureButton.textContent = 'Show Feature Content';
+                featureButton.textContent = 'Process Call';
             } else {
                 featureButton.disabled = true;
-                featureButton.textContent = 'Loading...';
+                featureButton.textContent = 'Processing...';
                 featureButton.classList.add('loading');
 
                 // Fetch and display the transcription
@@ -179,9 +190,9 @@
                     displayTranscription(transcriptionData, callDiv);
                     featureButton.textContent = 'Hide Feature Content';
                 } catch (error) {
-                    console.error('Error fetching transcription:', error);
-                    alert('Failed to fetch feature content. Please try again later.');
-                    featureButton.textContent = 'Show Feature Content';
+                    console.error('Error processing call:', error);
+                    alert('Failed to process call. Please try again later.');
+                    featureButton.textContent = 'Process Call';
                 } finally {
                     featureButton.disabled = false;
                     featureButton.classList.remove('loading');
@@ -189,27 +200,116 @@
             }
         }
 
+        function displayProcessedTranscription(data) {
+            const callsContainer = document.getElementById('calls-container');
+            callsContainer.innerHTML = ''; // Clear any existing content
+
+            if (data.length === 0) {
+                callsContainer.innerHTML = '<p>No processed calls available.</p>';
+                return;
+            }
+
+            // Create a transcription container
+            const transcriptionDiv = document.createElement('div');
+            transcriptionDiv.className = 'transcription';
+
+            data.forEach(group => {
+                // Create the title element
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'title';
+                titleDiv.textContent = `${group.title} (Score: ${group.score})`;
+
+                // Create the feature requests container
+                const featureRequestsDiv = document.createElement('div');
+                featureRequestsDiv.className = 'feature-requests';
+
+                // Create the list of feature requests
+                const requirementsList = document.createElement('ul');
+
+                group.feature_requests.forEach(req => {
+                    const requirementItem = document.createElement('li');
+                    requirementItem.className = 'requirement';
+
+                    const requirementText = document.createElement('p');
+                    requirementText.textContent = req.description;
+
+                    // Optionally, display time and customer
+                    const metadata = document.createElement('small');
+                    metadata.textContent = `Time: ${req.time}, Customer: ${req.customer}, Score: ${req.score}`;
+                    metadata.style.display = 'block';
+                    metadata.style.color = '#6c757d';
+
+                    requirementItem.appendChild(requirementText);
+                    requirementItem.appendChild(metadata);
+                    requirementsList.appendChild(requirementItem);
+                });
+
+                featureRequestsDiv.appendChild(requirementsList);
+
+                // Add event listener to toggle display
+                titleDiv.addEventListener('click', () => {
+                    if (featureRequestsDiv.style.display === 'none' || featureRequestsDiv.style.display === '') {
+                        featureRequestsDiv.style.display = 'block';
+                    } else {
+                        featureRequestsDiv.style.display = 'none';
+                    }
+                });
+
+                transcriptionDiv.appendChild(titleDiv);
+                transcriptionDiv.appendChild(featureRequestsDiv);
+            });
+
+            callsContainer.appendChild(transcriptionDiv);
+        }
+
         function displayTranscription(data, callDiv) {
             const transcriptionDiv = document.createElement('div');
             transcriptionDiv.className = 'transcription';
 
             data.forEach(group => {
-                const title = document.createElement('div');
-                title.className = 'title';
-                title.textContent = group.title;
-                transcriptionDiv.appendChild(title);
+                // Create the title element
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'title';
+                titleDiv.textContent = `${group.title} (Score: ${group.score})`;
 
+                // Create the feature requests container
+                const featureRequestsDiv = document.createElement('div');
+                featureRequestsDiv.className = 'feature-requests';
+
+                // Create the list of feature requests
                 const requirementsList = document.createElement('ul');
-                group.requirements.forEach(req => {
+
+                group.feature_requests.forEach(req => {
                     const requirementItem = document.createElement('li');
                     requirementItem.className = 'requirement';
 
                     const requirementText = document.createElement('p');
-                    requirementText.textContent = req;
+                    requirementText.textContent = req.description;
+
+                    // Optionally, display time and customer
+                    const metadata = document.createElement('small');
+                    metadata.textContent = `Time: ${req.time}, Customer: ${req.customer}, Score: ${req.score}`;
+                    metadata.style.display = 'block';
+                    metadata.style.color = '#6c757d';
+
                     requirementItem.appendChild(requirementText);
+                    requirementItem.appendChild(metadata);
                     requirementsList.appendChild(requirementItem);
                 });
-                transcriptionDiv.appendChild(requirementsList);
+
+                featureRequestsDiv.appendChild(requirementsList);
+
+                // Add event listener to toggle display
+                titleDiv.addEventListener('click', () => {
+                    if (featureRequestsDiv.style.display === 'none' || featureRequestsDiv.style.display === '') {
+                        featureRequestsDiv.style.display = 'block';
+                    } else {
+                        featureRequestsDiv.style.display = 'none';
+                    }
+                });
+
+                transcriptionDiv.appendChild(titleDiv);
+                transcriptionDiv.appendChild(featureRequestsDiv);
             });
 
             callDiv.appendChild(transcriptionDiv);
