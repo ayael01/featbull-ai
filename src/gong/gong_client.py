@@ -6,8 +6,8 @@ import requests
 from src.schemas.schemas import CallResponse
 
 
+logger = logging.getLogger(__name__)
 class GongClient:
-    logger = logging.getLogger(__name__)
 
     def __init__(self, username: str, password: str):
         self.base_url = 'https://api.gong.io/v2'
@@ -21,6 +21,7 @@ class GongClient:
         return token
 
     def get_transcription(self, call_ids: list):
+        logger.info('Getting gong transcription for call_id %s', call_ids)
         url = f'{self.base_url}/calls/transcript'
         headers = self.headers.copy()
         headers['Content-Type'] = 'application/json'
@@ -34,21 +35,22 @@ class GongClient:
         if response.status_code == 200:
             return response.json()
         else:
-            self.logger.error(
+            logger.error(
                 'Error while getting gong calls %s - %s', response.status_code, response.text)
             response.raise_for_status()
 
-    def get_extensive_calls(self, callId: str | None = None):
+    def get_extensive_calls(self, call_id: str | None = None):
+        logger.info('Getting gong extensive calls for call_id %s', call_id)
         url = f'{self.base_url}/calls/extensive'
         headers = self.headers.copy()
         headers['Content-Type'] = 'application/json'
-        if callId:
+        if call_id:
             data = {
                 "contentSelector": {
                     "context": "Extended"
                 },
                 "filter": {
-                    "callIds": [callId]
+                    "callIds": [call_id]
                 }
             }
         else:
@@ -80,6 +82,6 @@ class GongClient:
                 ))
             return transformed_response
         else:
-            self.logger.error(
+            logger.error(
                 'Error while getting extensive calls %s - %s', response.status_code, response.text)
             response.raise_for_status()

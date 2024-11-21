@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from collections import defaultdict
-from typing import Any, Dict, List
+from typing import List
 
 import numpy as np
 import openai
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 def generate_fr_from_call(transcription: str):
+    logger.info(f"Generating feature requests from transcription")
     response = openai.ChatCompletion.create(
         engine="gpt-4",
         messages=[
