@@ -38,24 +38,34 @@ class GongClient:
                 'Error while getting gong calls %s - %s', response.status_code, response.text)
             response.raise_for_status()
 
-    def get_extensive_calls(self):
+    def get_extensive_calls(self, callId: str | None = None):
         url = f'{self.base_url}/calls/extensive'
         headers = self.headers.copy()
         headers['Content-Type'] = 'application/json'
-        data = {
-            "contentSelector": {
-                "context": "Extended"
-            },
-            "filter": {
-                "fromDateTime": "2024-11-01T23:59:00-08:00",
-                "toDateTime": "2024-12-01T23:59:00-08:00",
+        if callId:
+            data = {
+                "contentSelector": {
+                    "context": "Extended"
+                },
+                "filter": {
+                    "callIds": [callId]
+                }
             }
-        }
+        else:
+            data = {
+                "contentSelector": {
+                    "context": "Extended"
+                },
+                "filter": {
+                    "fromDateTime": "2024-11-01T23:59:00-08:00",
+                    "toDateTime": "2024-12-01T23:59:00-08:00",
+                }
+            }
         response = requests.post(url, headers=headers, json=data, timeout=10)
 
         if response.status_code == 200:
             gong_response = response.json()
-            transformed_response:list[CallResponse] = []
+            transformed_response: list[CallResponse] = []
             for call in gong_response.get('calls', []):
                 customer_name = None
                 for field in call.get('context', [])[0].get('objects', [])[0].get('fields', []):

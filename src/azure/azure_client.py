@@ -77,7 +77,16 @@ def _generate_group_title(requirements: List[str]) -> str:
     return title
 
 
-def process_requirements(feature_requests: List[str], distance_threshold: float = 0.6, titles: List[str] = []) -> Dict[int, Dict[str, Any]]:
+class FeatureRequestGroup:
+    def __init__(self, title: str, feature_requests: List[str]):
+        self.title = title
+        self.feature_requests = feature_requests
+
+    def __repr__(self):
+        return f"FeatureRequestGroup(title={self.title}, feature_requests={self.feature_requests})"
+
+
+def process_feature_requests(feature_requests: List[str], distance_threshold: float = 0.6, titles: List[str] = []) -> List[FeatureRequestGroup]:
     """
     Process a list of requirements, assign them to existing titles based on similarity,
     and cluster unassigned requirements to generate new titles.
@@ -92,7 +101,7 @@ def process_requirements(feature_requests: List[str], distance_threshold: float 
         embeddings.append(embedding)
     logger.info("All embeddings for requirements generated successfully.")
 
-    groups_with_titles = {}
+    groups_with_titles = []
     unassigned_requirements = []
     unassigned_embeddings = []
 
@@ -106,8 +115,8 @@ def process_requirements(feature_requests: List[str], distance_threshold: float 
         logger.info("All embeddings for titles generated successfully.")
 
         # Initialize groups_with_titles with existing titles
-        groups_with_titles = {i: {"title": title, "requirements": []}
-                              for i, title in enumerate(titles)}
+        groups_with_titles = [FeatureRequestGroup(
+            title, []) for title in titles]
 
         # For each requirement, compute similarity to each title
         for idx, (req_embedding, req_text) in enumerate(zip(embeddings, feature_requests)):
@@ -119,7 +128,7 @@ def process_requirements(feature_requests: List[str], distance_threshold: float 
             similarity_threshold = 0.7
             if max_similarity >= similarity_threshold:
                 # Assign to the group with max similarity
-                groups_with_titles[max_index]["requirements"].append(req_text)
+                groups_with_titles[max_index].feature_requests.append(req_text)
             else:
                 # Requirement does not fit any existing title
                 unassigned_requirements.append(req_text)
@@ -154,19 +163,16 @@ def process_requirements(feature_requests: List[str], distance_threshold: float 
             for label, requirement in zip(labels, unassigned_requirements):
                 unassigned_groups[label].append(requirement)
 
-            groups_with_titles = []
             for group_reqs in unassigned_groups.values():
                 title = _generate_group_title(group_reqs)
-                groups_with_titles.append({
-                    "title": title, "requirements": group_reqs})
+                groups_with_titles.append(
+                    FeatureRequestGroup(title, group_reqs))
 
         else:
             # Only one unassigned requirement, generate a title for it
-            groups_with_titles = []
             req_text = unassigned_requirements[0]
             title = _generate_group_title([req_text])
-            groups_with_titles.append({
-                "title": title, "requirements": [req_text]})
+            groups_with_titles.append(FeatureRequestGroup(title, [req_text]))
         logger.info(
             f"Generated titles for {len(groups_with_titles)} groups including unassigned requirements.")
 
