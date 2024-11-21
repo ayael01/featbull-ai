@@ -32,7 +32,7 @@ async def get_calls(db: Session = Depends(get_session)):
 
 
 @router.get("/calls/{call_id}/process")
-async def get_transcription(call_id: str, db: Session = Depends(get_session)):
+async def get_call_process(call_id: str, db: Session = Depends(get_session)):
     try:
         transcription: dict = gong_client.get_transcription(
             [call_id])  # type: ignore
@@ -49,22 +49,35 @@ async def get_transcription(call_id: str, db: Session = Depends(get_session)):
         time = call_extensive_data.started
         new_titles = []
         for item in processed_result:
-            if item.title not in topic_titles:
+            if item.title and item.title not in topic_titles:
                 new_titles.append(item.title)
                 new_topic = Topic(title=item.title)
                 db.add(new_topic)
+        
+        db.commit()  # Commit new topics before adding feature requests
 
+        non_empty_results = []
+        for item in processed_result:
+            feature_requests = []
             for feature_request in item.feature_requests:
-                new_feature_request = FeatureRequest(
-                    title=item.title,
-                    customer_name=customer_name,
-                    description=feature_request,
-                    time=time
-                )
-                db.add(new_feature_request)
+                if item.title:
+                    new_feature_request = FeatureRequest(
+                        title=item.title,
+                        customer_name=customer_name,
+                        description=feature_request,
+                        time=time
+                    )
+                    db.add(new_feature_request)
+                    feature_requests.append(feature_request)
+            
+            if feature_requests:
+                non_empty_results.append({
+                    "title": item.title,
+                    "feature_requests": feature_requests
+                })
         db.commit()
 
-        return processed_result
+        return non_empty_results
 
     except HTTPError as e:
         logger.error("Failed to get transcription for call %s: %s",
