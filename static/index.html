@@ -2,60 +2,217 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Customer Requirement Clustering</title>
+    <title>Feature Requests Viewer</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        h1 { color: #333; }
-        .button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
-        .results { margin-top: 20px; }
-        .group { margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
-        .slider { width: 300px; }
-        .group-title { font-weight: bold; font-size: 18px; margin-bottom: 5px; color: #555; }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #343a40;
+        }
+        #fetch-calls-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #053956;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        #fetch-calls-button:hover {
+            background-color: #053956;
+        }
+        #fetch-calls-button.loading {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        #calls-container {
+            margin-top: 20px;
+        }
+        .call {
+            background-color: #fff;
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #ced4da;
+        }
+        .call-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .call-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 0;
+            color: #495057;
+        }
+        .show-feature-button {
+            padding: 8px 12px;
+            font-size: 14px;
+            background-color: #053956;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        .show-feature-button:hover {
+            background-color: #053956;
+        }
+        .show-feature-button.loading {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .transcription {
+            margin-top: 15px;
+            padding-left: 20px;
+        }
+        .title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 10px;
+            color: #17a2b8;
+        }
+        .requirement {
+            margin-left: 15px;
+            list-style-type: disc;
+            color: #343a40;
+        }
+        .requirement p {
+            margin: 5px 0;
+        }
     </style>
 </head>
 <body>
 
-    <h1>Customer Requirement Clustering</h1>
-    
-    <label for="threshold">Distance Threshold: <span id="thresholdValue">0.7</span></label>
-    <input type="range" id="threshold" name="threshold" min="0.1" max="2.0" step="0.1" value="0.7" class="slider"
-           oninput="updateThresholdValue(this.value)">
+    <h1>Feature Requests Viewer</h1>
+    <button id="fetch-calls-button">Fetch Calls</button>
 
-    <button class="button" onclick="fetchClusters()">Get Clusters</button>
-
-    <div class="results" id="results"></div>
+    <div id="calls-container"></div>
 
     <script>
-        function updateThresholdValue(value) {
-            document.getElementById("thresholdValue").textContent = value;
-        }
+        // Fetch the list of calls when the button is clicked
+        document.getElementById('fetch-calls-button').addEventListener('click', fetchCalls);
 
-        async function fetchClusters() {
-            const resultsDiv = document.getElementById("results");
-            const distanceThreshold = document.getElementById("threshold").value;
-            resultsDiv.innerHTML = "Loading clusters...";
+        async function fetchCalls() {
+            const fetchButton = document.getElementById('fetch-calls-button');
+            fetchButton.disabled = true;
+            fetchButton.textContent = 'Loading...';
+            fetchButton.classList.add('loading');
 
             try {
-                const response = await fetch(`http://127.0.0.1:8100/cluster-requirements?distance_threshold=${distanceThreshold}`);
-                if (!response.ok) throw new Error("Network response was not ok");
-
-                const groups = await response.json();
-                resultsDiv.innerHTML = ""; // Clear loading message
-
-                for (const [group, groupData] of Object.entries(groups)) {
-                    const groupDiv = document.createElement("div");
-                    groupDiv.classList.add("group");
-                    groupDiv.innerHTML = `
-                        <div class="group-title">${groupData.title}</div>
-                        <ul>${groupData.requirements.map(req => `<li>${req}</li>`).join("")}</ul>
-                    `;
-                    resultsDiv.appendChild(groupDiv);
+                const response = await fetch('/calls');
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
                 }
-
+                const calls = await response.json();
+                displayCalls(calls);
             } catch (error) {
-                resultsDiv.innerHTML = "Error fetching clusters: " + error;
+                console.error('Error fetching calls:', error);
+                alert('Failed to fetch calls. Please try again later.');
+            } finally {
+                fetchButton.disabled = false;
+                fetchButton.textContent = 'Fetch Calls';
+                fetchButton.classList.remove('loading');
             }
+        }
+
+        function displayCalls(calls) {
+            const callsContainer = document.getElementById('calls-container');
+            callsContainer.innerHTML = ''; // Clear any existing content
+
+            if (calls.length === 0) {
+                callsContainer.innerHTML = '<p>No calls available.</p>';
+                return;
+            }
+
+            calls.forEach(call => {
+                // Create the call container
+                const callDiv = document.createElement('div');
+                callDiv.className = 'call';
+
+                // Call header with title and button
+                const callHeader = document.createElement('div');
+                callHeader.className = 'call-header';
+
+                const callTitle = document.createElement('h2');
+                callTitle.className = 'call-title';
+                callTitle.textContent = `Call ID: ${call.id}`;
+
+                const featureButton = document.createElement('button');
+                featureButton.className = 'show-feature-button';
+                featureButton.textContent = 'Show Feature Content';
+                featureButton.addEventListener('click', () => toggleTranscription(call.id, callDiv, featureButton));
+
+                callHeader.appendChild(callTitle);
+                callHeader.appendChild(featureButton);
+                callDiv.appendChild(callHeader);
+
+                // Append to the main container
+                callsContainer.appendChild(callDiv);
+            });
+        }
+
+        async function toggleTranscription(callId, callDiv, featureButton) {
+            const existingTranscription = callDiv.querySelector('.transcription');
+            if (existingTranscription) {
+                // If transcription is already displayed, remove it
+                existingTranscription.remove();
+                featureButton.textContent = 'Show Feature Content';
+            } else {
+                featureButton.disabled = true;
+                featureButton.textContent = 'Loading...';
+                featureButton.classList.add('loading');
+
+                // Fetch and display the transcription
+                try {
+                    const response = await fetch(`/calls/${callId}/process`);
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    const transcriptionData = await response.json();
+                    displayTranscription(transcriptionData, callDiv);
+                    featureButton.textContent = 'Hide Feature Content';
+                } catch (error) {
+                    console.error('Error fetching transcription:', error);
+                    alert('Failed to fetch feature content. Please try again later.');
+                    featureButton.textContent = 'Show Feature Content';
+                } finally {
+                    featureButton.disabled = false;
+                    featureButton.classList.remove('loading');
+                }
+            }
+        }
+
+        function displayTranscription(data, callDiv) {
+            const transcriptionDiv = document.createElement('div');
+            transcriptionDiv.className = 'transcription';
+
+            data.forEach(group => {
+                const title = document.createElement('div');
+                title.className = 'title';
+                title.textContent = group.title;
+                transcriptionDiv.appendChild(title);
+
+                const requirementsList = document.createElement('ul');
+                group.requirements.forEach(req => {
+                    const requirementItem = document.createElement('li');
+                    requirementItem.className = 'requirement';
+
+                    const requirementText = document.createElement('p');
+                    requirementText.textContent = req;
+                    requirementItem.appendChild(requirementText);
+                    requirementsList.appendChild(requirementItem);
+                });
+                transcriptionDiv.appendChild(requirementsList);
+            });
+
+            callDiv.appendChild(transcriptionDiv);
         }
     </script>
 
